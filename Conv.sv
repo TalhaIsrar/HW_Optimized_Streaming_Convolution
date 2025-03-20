@@ -8,8 +8,10 @@ module Conv #(
 )(
     input clk, rst,
     input logic [7:0] in_img_stream,
+	 input logic in_valid,
     input logic [7:0] Kernal_weights [0:Kernal_Dim-1][0:Kernal_Dim-1][0:Kernal_Ch-1],
-    output logic [7:0] out_img_stream
+    output logic [15:0] out_img_stream,
+	 output logic out_valid
 );
 
 	 logic [7:0] buffer [0:Img_Dim*Img_Ch*Kernal_Dim-1];
@@ -19,13 +21,14 @@ module Conv #(
 	 logic [7:0] flattened_weights [0:Kernal_Dim*Kernal_Dim*Img_Ch-1];
 	 reg [7:0] in_write_addr;
 	 reg [7:0] out_block_addr;
-	 reg [7:0] temp_result;
+	 reg [15:0] temp_result;
 	 
 	 Counter #(
 		  .counter_size(8)
 	 ) input_counter (
 	 	 .clk(clk),
 		 .rst(rst),
+		 .en(in_valid),
 		 .target(Img_Dim*Img_Ch*Kernal_Dim),
 		 .count(in_write_addr)
 	 );
@@ -35,6 +38,7 @@ module Conv #(
 	 ) conv_counter (
         .clk(clk),
         .rst(rst),
+  		  .en(in_valid),
         .target(Out_Dim),
         .count(out_block_addr)
     );
@@ -66,6 +70,8 @@ module Conv #(
 										 .N(Kernal_Dim*Kernal_Dim*Img_Ch)) 
 	 internal_buffer(
 		  .clk(clk),
+		  .rst(rst),
+		  .en(in_valid),
 		  .in_addr(in_write_addr),
 		  .in_data(in_img_stream),
 		  .read_addr(current_conv_addr),
@@ -96,6 +102,15 @@ module Conv #(
 		 end
 		 out_img_stream = temp_result;
     end
+	 
+	 always_comb begin
+		 if (in_write_addr < Out_Dim) begin
+				out_valid = 1;
+		 end
+		 else begin
+		 		out_valid = 0;
+		 end
+	 end
 	 
 endmodule
 

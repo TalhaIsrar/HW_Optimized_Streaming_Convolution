@@ -10,8 +10,10 @@ module conv_tb;
     reg clk;
     reg rst;
     logic [7:0] in_img_stream;
+	 logic in_valid;
     logic [7:0] Kernal_weights [0:Kernal_Dim-1][0:Kernal_Dim-1][0:Kernal_Ch-1];
-    logic [7:0] out_img_stream;
+    logic [15:0] out_img_stream;
+	 logic out_valid;
 
     // Instantiate the Conv module
     Conv #(
@@ -24,8 +26,10 @@ module conv_tb;
         .clk(clk),
         .rst(rst),
         .in_img_stream(in_img_stream),
+		  .in_valid(in_valid),
         .Kernal_weights(Kernal_weights),
-        .out_img_stream(out_img_stream)
+        .out_img_stream(out_img_stream),
+		  .out_valid(out_valid)
     );
 
     // Clock generation
@@ -39,12 +43,13 @@ module conv_tb;
         clk = 0;
         rst = 0;
         in_img_stream = 0;
+		  in_valid = 0;
         // Random initialization of Kernal_weights
         // You can change the seed or value ranges to fit your needs
         for (int i = 0; i < Kernal_Dim; i = i + 1) begin
             for (int j = 0; j < Kernal_Dim; j = j + 1) begin
                 for (int k = 0; k < Kernal_Ch; k = k + 1) begin
-                    Kernal_weights[i][j][k] = i;  // Random 8-bit value
+                    Kernal_weights[i][j][k] = i+j+k;  // Random 8-bit value
                 end
             end
         end
@@ -53,12 +58,14 @@ module conv_tb;
         rst = 1;
         #10;  // Wait for a few clock cycles
         rst = 0;
-        
+        in_valid = 1;
         // Apply image stream (Img_Dim * Img_Dim * Img_Ch = 4 * 4 * 3 = 48 cycles)
         for (int i = 0; i < Img_Dim * Img_Dim * Img_Ch; i = i + 1) begin
             in_img_stream = i;  // Random 8-bit input for the image stream
             #10;  // Wait for the next clock cycle
         end
+		  in_valid = 0;
+
 
         // Wait a bit for the convolution to complete
         #100;

@@ -2,7 +2,9 @@ module MemoryUnit #(
     parameter int Buffer_size = 24,
     parameter int N = 8
 ) (
-    input  logic clk,  
+    input  logic clk,
+	 input  logic rst,
+	 input  logic en,
     input  logic [7:0] in_addr,       // 64-bit input address for writing
     input  logic [7:0]  in_data,       // 8-bit data input for writing
     input  logic [7:0] read_addr [0:N-1],  // Array of read addresses
@@ -12,9 +14,9 @@ module MemoryUnit #(
     // 1D Buffer Memory
     logic [7:0] buffer [0:Buffer_size-1];
 
-    // Write Logic
     always_ff @(posedge clk) begin
-        buffer[in_addr] <= in_data;  // Store incoming data at given address
+        if (en)  // Enable check
+            buffer[in_addr] <= in_data;  // Store incoming data at given address
     end
 
     // Read Logic

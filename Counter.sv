@@ -5,7 +5,7 @@ module Counter #(
     input logic rst,
     input logic en,
     input logic [counter_size -1:0] target,  // Target count value
-    output logic [63:0] count
+    output logic [counter_size -1:0] count
 );
     
     always_ff @(posedge clk or posedge rst) begin

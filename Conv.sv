@@ -22,6 +22,7 @@ module Conv #(
 	 reg [7:0] in_write_addr;
 	 reg [7:0] out_block_addr;
 	 reg [15:0] temp_result;
+	 reg [7:0] current_pixel;
 	 
 	 Counter #(
 		  .counter_size(8)
@@ -31,6 +32,16 @@ module Conv #(
 		 .en(in_valid),
 		 .target(Img_Dim*Img_Ch*Kernal_Dim),
 		 .count(in_write_addr)
+	 );
+	 
+	 Counter #(
+		  .counter_size(8)
+	 ) pixel_count (
+	 	 .clk(clk),
+		 .rst(rst),
+		 .en(in_valid),
+		 .target(Img_Dim*Img_Dim*Img_Ch),
+		 .count(current_pixel)
 	 );
 	 
 	 Counter #(
@@ -47,10 +58,11 @@ module Conv #(
 	 // Calculate addresses
     integer i, j;  // Loop variable
     integer group;  // To keep track of the current group
-
+	 reg set;
+	 
     // Initialization during reset
     always @(posedge clk or negedge rst) begin
-        if (!rst) begin
+        if (!rst) begin	
             // Reset the array or other logic
             for (i = 0; i < Kernal_Dim*Kernal_Dim*Img_Ch; i = i + 1) begin
                 group = i / (Kernal_Dim*Img_Ch);  // Determine the current group
@@ -78,6 +90,17 @@ module Conv #(
 		  .read_data(current_conv)	  
 	 );
 	 
+	 reg [2:0] last_result;
+	 Counter #(
+			.counter_size(8)
+	 ) result_counter (
+        .clk(clk),
+        .rst(rst),
+  		  .en(set),
+        .target(Out_Dim + 1),
+        .count(last_result)
+    );
+	 
 	 integer x, y, z;
 	 integer index;
     always_comb begin
@@ -103,13 +126,33 @@ module Conv #(
 		 out_img_stream = temp_result;
     end
 	 
+	 
 	 always_comb begin
-		 if (in_write_addr < Out_Dim) begin
+		 if ((current_pixel) >= Img_Dim*Img_Ch*Kernal_Dim 
+				&& (((current_pixel) % (Img_Dim*Img_Ch*Kernal_Dim)) < Out_Dim))
+		 begin
 				out_valid = 1;
 		 end
 		 else begin
 		 		out_valid = 0;
 		 end
+		 		 
+		 
+		 if (current_pixel + 1 == Img_Dim * Img_Dim * Img_Ch) begin
+				set = 1;
+				out_valid = 1;
+		 end
+		 
+		 if (last_result > 0) begin
+				if (last_result == Out_Dim) begin
+					out_valid = 0;
+					set = 0;			
+				end else begin
+					out_valid = 1;
+				end
+		 
+		 end
+		 
 	 end
 	 
 endmodule

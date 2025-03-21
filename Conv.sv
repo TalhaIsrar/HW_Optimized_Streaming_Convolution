@@ -20,19 +20,10 @@ module Conv #(
 	 logic [7:0] current_conv [0:Kernal_Dim*Kernal_Dim*Img_Ch-1];
 	 logic [7:0] flattened_weights [0:Kernal_Dim*Kernal_Dim*Img_Ch-1];
 	 reg [7:0] in_write_addr;
-	 reg [7:0] out_block_addr;
 	 reg [15:0] temp_result;
 	 reg [7:0] current_pixel;
-	 
-	 Counter #(
-		  .counter_size(8)
-	 ) input_counter (
-	 	 .clk(clk),
-		 .rst(rst),
-		 .en(in_valid),
-		 .target(Img_Dim*Img_Ch*Kernal_Dim),
-		 .count(in_write_addr)
-	 );
+	 reg [7:0] last_result;
+
 	 
 	 Counter #(
 		  .counter_size(8)
@@ -44,21 +35,12 @@ module Conv #(
 		 .count(current_pixel)
 	 );
 	 
-	 Counter #(
-			.counter_size(8)
-	 ) conv_counter (
-        .clk(clk),
-        .rst(rst),
-  		  .en(in_valid),
-        .target(Out_Dim),
-        .count(out_block_addr)
-    );
-	 
 	 
 	 // Calculate addresses
     integer i, j;  // Loop variable
     integer group;  // To keep track of the current group
 	 reg set;
+	 reg last;
 	 
     // Initialization during reset
     always @(posedge clk or negedge rst) begin
@@ -74,7 +56,7 @@ module Conv #(
 	 always_comb begin
         // Loop through each element of the array and add the value
         for (j = 0; j < Kernal_Dim*Kernal_Dim*Img_Ch; j = j + 1) begin
-            current_conv_addr[j] = in_read_addr[j] + out_block_addr*(Kernal_Dim*Img_Ch);
+            current_conv_addr[j] = in_read_addr[j] + (last_result-1)*(Kernal_Dim*Img_Ch);
         end
     end
 	 
@@ -90,7 +72,6 @@ module Conv #(
 		  .read_data(current_conv)	  
 	 );
 	 
-	 reg [2:0] last_result;
 	 Counter #(
 			.counter_size(8)
 	 ) result_counter (
@@ -103,8 +84,20 @@ module Conv #(
 	 
 	 integer x, y, z;
 	 integer index;
-    always_comb begin
-        // Flatten the 3D array into the 1D array
+	 integer sum_i;
+	 
+	 always @(posedge clk) begin
+			if ((current_pixel + 1) == (Img_Dim * Img_Dim * Img_Ch)) begin
+				last = 1;
+			end else begin
+				last = 0;
+			end
+	 end
+	 
+	 always_comb begin
+		  in_write_addr = current_pixel % (Img_Dim * Img_Ch * Kernal_Dim);
+	
+	     // Flatten the 3D array into the 1D array
         index = 0;
         for (x = 0; x < Kernal_Dim; x = x + 1) begin
             for (y = 0; y < Kernal_Dim; y = y + 1) begin
@@ -114,46 +107,38 @@ module Conv #(
                 end
             end
         end
-    end
 	 
-	 integer sum_i;
-	 
-	 always_comb begin
 	    temp_result = 0;
 		 for (sum_i = 0; sum_i< Kernal_Dim*Kernal_Dim*Img_Ch; sum_i = sum_i + 1) begin
 				temp_result = temp_result + (flattened_weights[sum_i] * current_conv[sum_i]);
 		 end
 		 out_img_stream = temp_result;
-    end
-	 
-	 
-	 always_comb begin
-		 if ((current_pixel) >= Img_Dim*Img_Ch*Kernal_Dim 
-				&& (((current_pixel) % (Img_Dim*Img_Ch*Kernal_Dim)) < Out_Dim))
-		 begin
-				out_valid = 1;
-		 end
-		 else begin
-		 		out_valid = 0;
-		 end
-		 		 
-		 
-		 if (current_pixel + 1 == Img_Dim * Img_Dim * Img_Ch) begin
-				set = 1;
-				out_valid = 1;
-		 end
+		  
 		 
 		 if (last_result > 0) begin
-				if (last_result == Out_Dim) begin
+				if (last_result == Out_Dim + 1) begin
 					out_valid = 0;
 					set = 0;			
 				end else begin
 					out_valid = 1;
+					set = 1;
 				end
+	    end
+		 else if (((current_pixel) % (Img_Dim * Img_Ch * Kernal_Dim)) == 0 && (current_pixel) >= (Img_Dim*Img_Ch*Kernal_Dim) - 1) begin
+				set = 1;
+				out_valid = 0;
+		 end
+		 else if ((current_pixel)  == 0 && last) begin
+				set = 1;
+				out_valid = 0;
 		 
 		 end
+		 else begin
+		 		out_valid = 0;
+				set = 0;
+		 end
 		 
-	 end
+    end
 	 
 endmodule
 

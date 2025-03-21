@@ -14,6 +14,8 @@ module conv_tb;
     logic [7:0] Kernal_weights [0:Kernal_Dim-1][0:Kernal_Dim-1][0:Kernal_Ch-1];
     logic [15:0] out_img_stream;
 	 logic out_valid;
+	 
+	 int count;
 
     // Instantiate the Conv module
     Conv #(
@@ -59,9 +61,20 @@ module conv_tb;
         #10;  // Wait for a few clock cycles
         rst = 0;
         in_valid = 1;
+		  
         // Apply image stream (Img_Dim * Img_Dim * Img_Ch = 4 * 4 * 3 = 48 cycles)
-        for (int i = 0; i < Img_Dim * Img_Dim * Img_Ch; i = i + 1) begin
-            in_img_stream = i;  // Random 8-bit input for the image stream
+        for (count = 0; count < ((Img_Dim * Img_Dim * Img_Ch)-2)/2; count++) begin
+            in_img_stream = count;  // Random 8-bit input for the image stream
+            #10;  // Wait for the next clock cycle
+        end
+		  in_valid = 0;
+		  #50
+		  in_valid = 1;
+		  
+		  
+		  // Apply image stream (Img_Dim * Img_Dim * Img_Ch = 4 * 4 * 3 = 48 cycles)
+        for (count = in_img_stream + 1; count < Img_Dim * Img_Dim * Img_Ch; count++) begin
+            in_img_stream = count;  // Random 8-bit input for the image stream
             #10;  // Wait for the next clock cycle
         end
 		  in_valid = 0;

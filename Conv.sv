@@ -14,7 +14,6 @@ module Conv #(
 	 output logic out_valid
 );
 
-	 logic [7:0] buffer [0:Img_Dim*Img_Ch*Kernal_Dim-1];
 	 logic [7:0] in_read_addr [0:Kernal_Dim*Kernal_Dim*Img_Ch-1];
 	 logic [7:0] current_conv_addr [0:Kernal_Dim*Kernal_Dim*Img_Ch-1];
 	 logic [7:0] current_conv [0:Kernal_Dim*Kernal_Dim*Img_Ch-1];
@@ -43,8 +42,8 @@ module Conv #(
 	 reg last;
 	 
     // Initialization during reset
-    always @(posedge clk or negedge rst) begin
-        if (!rst) begin	
+    always @(posedge rst) begin
+        if (rst) begin	
             // Reset the array or other logic
             for (i = 0; i < Kernal_Dim*Kernal_Dim*Img_Ch; i = i + 1) begin
                 group = i / (Kernal_Dim*Img_Ch);  // Determine the current group
@@ -139,7 +138,7 @@ module Conv #(
 		 end
 		 
     end
-	 
+
 endmodule
 
 

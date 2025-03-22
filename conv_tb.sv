@@ -63,7 +63,7 @@ module conv_tb;
         in_valid = 1;
 		  
         // Apply image stream (Img_Dim * Img_Dim * Img_Ch = 4 * 4 * 3 = 48 cycles)
-        for (count = 0; count < ((Img_Dim * Img_Dim * Img_Ch)-2)/2; count++) begin
+        for (count = 0; count < ((Img_Dim * Img_Dim * Img_Ch))/2; count++) begin
             in_img_stream = count;  // Random 8-bit input for the image stream
             #10;  // Wait for the next clock cycle
         end
@@ -82,7 +82,44 @@ module conv_tb;
 
         // Wait a bit for the convolution to complete
         #100;
+		  in_valid = 1;
+        // Apply image stream (Img_Dim * Img_Dim * Img_Ch = 4 * 4 * 3 = 48 cycles)
+        for (count = (Img_Dim * Img_Dim * Img_Ch) - 1; count > ((Img_Dim * Img_Dim * Img_Ch)-2)/2; count--) begin
+            in_img_stream = count;  // Random 8-bit input for the image stream
+            #10;  // Wait for the next clock cycle
+        end
+		  in_valid = 0;
+		  #30
+		  in_valid = 1;
+		  
+		  
+		  // Apply image stream (Img_Dim * Img_Dim * Img_Ch = 4 * 4 * 3 = 48 cycles)
+        for (count = in_img_stream - 1; count >= 0; count--) begin
+            in_img_stream = count;  // Random 8-bit input for the image stream
+            #10;  // Wait for the next clock cycle
+        end
+		  
+		  
+		  // Apply image stream (Img_Dim * Img_Dim * Img_Ch = 4 * 4 * 3 = 48 cycles)
+        for (count = 0; count < ((Img_Dim * Img_Dim * Img_Ch))/2; count++) begin
+            in_img_stream = count;  // Random 8-bit input for the image stream
+            #10;  // Wait for the next clock cycle
+        end
+		  in_valid = 0;
+		  #50
+		  in_valid = 1;
+		  
+		  
+		  // Apply image stream (Img_Dim * Img_Dim * Img_Ch = 4 * 4 * 3 = 48 cycles)
+        for (count = in_img_stream + 1; count < Img_Dim * Img_Dim * Img_Ch; count++) begin
+            in_img_stream = count;  // Random 8-bit input for the image stream
+            #10;  // Wait for the next clock cycle
+        end
+		  in_valid = 0;
+		   
+		  #100
 
+		  
         // Observe the output (you can add assertions or print the value)
         $display("Output Image Stream: %h", out_img_stream);
         

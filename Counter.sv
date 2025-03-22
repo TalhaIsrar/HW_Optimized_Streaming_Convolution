@@ -1,11 +1,11 @@
 module Counter #(
-    parameter int counter_size = 64
+    parameter int COUNTER_SIZE = 64
 )(
     input logic clk,
     input logic rst,
     input logic en,
-    input logic [counter_size-1:0] target,
-    output logic [counter_size-1:0] count
+    input logic [COUNTER_SIZE-1:0] target,
+    output logic [COUNTER_SIZE-1:0] count
 );
     
     always_ff @(posedge clk or posedge rst) begin

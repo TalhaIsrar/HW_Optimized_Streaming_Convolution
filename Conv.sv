@@ -1,81 +1,53 @@
 module Conv #(
-	parameter int Kernal_Dim = 2,
-	parameter int Kernal_Ch  = 3,
-	parameter int Img_Dim	 = 4,
-	parameter int Img_Ch		 = 3,
-	parameter int Out_Dim    = 2
-	// Currently stride = Kernal_Dim
+	parameter int KERNEL_DIM = 2,
+	parameter int KERNEL_CH  = 3,
+	parameter int IMG_DIM	 = 4,
+	parameter int IMG_CH		 = 3,
+	parameter int OUT_DIM    = 2,
+	parameter int INPUT_PREC = 8,
+	parameter int OUTPUT_PREC= INPUT_PREC * 2,
+	
+   parameter BUFFER_SIZE = IMG_DIM * IMG_CH * KERNEL_DIM,
+   parameter KERNEL_SIZE = KERNEL_DIM * KERNEL_DIM * KERNEL_CH,
+	parameter IMG_SIZE    = IMG_DIM * IMG_DIM * IMG_CH
+
 )(
     input clk, rst,
-    input logic [7:0] in_img_stream,
+    input logic [INPUT_PREC - 1:0] in_img_stream,
 	 input logic in_valid,
-    input logic [7:0] Kernal_weights [0:Kernal_Dim-1][0:Kernal_Dim-1][0:Kernal_Ch-1],
-    output logic [15:0] out_img_stream,
+    input logic [INPUT_PREC - 1:0] Kernal_weights [0:KERNEL_DIM-1][0:KERNEL_DIM-1][0:KERNEL_CH-1],
+    output logic [OUTPUT_PREC - 1:0] out_img_stream,
 	 output logic out_valid
 );
 
-	 logic [7:0] in_read_addr [0:Kernal_Dim*Kernal_Dim*Img_Ch-1];
-	 logic [7:0] current_conv_addr [0:Kernal_Dim*Kernal_Dim*Img_Ch-1];
-	 logic [7:0] current_conv [0:Kernal_Dim*Kernal_Dim*Img_Ch-1];
-	 logic [7:0] flattened_weights [0:Kernal_Dim*Kernal_Dim*Img_Ch-1];
-	 reg [7:0] in_write_addr;
-	 reg [15:0] temp_result;
-	 reg [7:0] current_pixel;
-	 reg [7:0] last_result;
-	 reg [7:0] save_pixel;
+	 logic [INPUT_PREC - 1:0] in_read_addr [0:KERNEL_SIZE-1];
+	 logic [INPUT_PREC - 1:0] current_conv_addr [0:KERNEL_SIZE-1];
+	 logic [INPUT_PREC - 1:0] current_conv [0:KERNEL_SIZE-1];
+	 logic [INPUT_PREC - 1:0] flattened_weights [0:KERNEL_SIZE-1];
+	 reg [INPUT_PREC - 1:0] in_write_addr;
+	 reg [INPUT_PREC - 1:0] current_pixel;
+	 reg [INPUT_PREC - 1:0] last_result;
+	 reg [INPUT_PREC - 1:0] save_pixel;
+	 
+	 reg set;
+	 reg last;
+
+	 integer index;
+	 integer group;
 
 	 
 	 Counter #(
-		  .counter_size(8)
+		  .COUNTER_SIZE(8)
 	 ) pixel_count (
 	 	 .clk(clk),
 		 .rst(rst),
 		 .en(in_valid),
-		 .target(Img_Dim*Img_Dim*Img_Ch),
+		 .target(IMG_SIZE),
 		 .count(current_pixel)
 	 );
 	 
-	 
-	 // Calculate addresses
-    integer i, j;  // Loop variable
-    integer group;  // To keep track of the current group
-	 reg set;
-	 reg last;
-	 
-    // Initialization during reset
-    always @(posedge clk or posedge rst) begin
-        if (rst) begin	
-		  		save_pixel = 0;
-
-            // Reset the array or other logic
-            for (i = 0; i < Kernal_Dim*Kernal_Dim*Img_Ch; i = i + 1) begin
-                group = i / (Kernal_Dim*Img_Ch);  // Determine the current group
-                in_read_addr[i] = (group * Kernal_Dim*Kernal_Dim*Img_Ch) + (i % (Kernal_Dim*Img_Ch));  // Assign values based on group and index within group
-            end
-        end else begin
-			if ((current_pixel + 1) == (Img_Dim * Img_Dim * Img_Ch)) begin
-				last = 1;
-				end else begin
-					last = 0;
-				end
-				
-				if (last_result == Out_Dim - 1)
-				begin
-					save_pixel = current_pixel;
-				end  
-		  end
-    end
-	 
-	 always_comb begin
-        // Loop through each element of the array and add the value
-        for (j = 0; j < Kernal_Dim*Kernal_Dim*Img_Ch; j = j + 1) begin
-            current_conv_addr[j] = in_read_addr[j] + (last_result-1)*(Kernal_Dim*Img_Ch);
-        end
-    end
-	 
-	 MemoryUnit #(.Buffer_size(Img_Dim*Img_Ch*Kernal_Dim),
-										 .N(Kernal_Dim*Kernal_Dim*Img_Ch)) 
-	 internal_buffer(
+	 MemoryUnit #(.MEMORY_SIZE(BUFFER_SIZE), .READ_ADDR_LEN(KERNEL_SIZE), .INPUT_PREC(INPUT_PREC)
+	 ) internal_buffer(
 		  .clk(clk),
 		  .rst(rst),
 		  .en(in_valid),
@@ -86,43 +58,67 @@ module Conv #(
 	 );
 	 
 	 Counter #(
-			.counter_size(8)
+			.COUNTER_SIZE(8)
 	 ) result_counter (
         .clk(clk),
         .rst(rst),
   		  .en(set),
-        .target(Out_Dim + 1),
+        .target(OUT_DIM + 1),
         .count(last_result)
     );
 	 
-	 integer x, y, z;
-	 integer index;
-	 integer sum_i;
 	 
+    // Initialization during reset
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin	
+		  		save_pixel = 0;
+				
+				  // Flatten the 3D array into the 1D array
+				  index = 0;
+				  for (int x = 0; x < KERNEL_DIM; x = x + 1) begin
+						for (int y = 0; y < KERNEL_DIM; y = y + 1) begin
+							 for (int z = 0; z < KERNEL_CH; z = z + 1) begin
+								  flattened_weights[index] = Kernal_weights[x][y][z];
+								  index = index + 1;
+							 end
+						end
+				  end
+
+            // Reset the array or other logic
+            for (int i = 0; i < KERNEL_SIZE; i = i + 1) begin
+				    group = i / (KERNEL_DIM * KERNEL_CH);
+                in_read_addr[i] = ((group * KERNEL_SIZE) + (i % (KERNEL_DIM*IMG_CH)));
+            end
+        end else begin
+			if ((current_pixel + 1) == IMG_SIZE) begin
+				last = 1;
+				end else begin
+					last = 0;
+				end
+				
+				if (last_result == OUT_DIM - 1)
+				begin
+					save_pixel = current_pixel;
+				end  
+		  end
+    end
+
 	 
 	 always_comb begin
-		  in_write_addr = current_pixel % (Img_Dim * Img_Ch * Kernal_Dim);
+	      // Loop through each element of the array and add the value
+        for (int j = 0; j < KERNEL_SIZE; j = j + 1) begin
+            current_conv_addr[j] = in_read_addr[j] + (last_result-1)*(KERNEL_DIM*IMG_CH);
+        end 
 	
-	     // Flatten the 3D array into the 1D array
-        index = 0;
-        for (x = 0; x < Kernal_Dim; x = x + 1) begin
-            for (y = 0; y < Kernal_Dim; y = y + 1) begin
-                for (z = 0; z < Kernal_Ch; z = z + 1) begin
-                    flattened_weights[index] = Kernal_weights[x][y][z];
-                    index = index + 1;
-                end
-            end
-        end
+		 in_write_addr = current_pixel % BUFFER_SIZE;
 	 
-	    temp_result = 0;
-		 for (sum_i = 0; sum_i< Kernal_Dim*Kernal_Dim*Img_Ch; sum_i = sum_i + 1) begin
-				temp_result = temp_result + (flattened_weights[sum_i] * current_conv[sum_i]);
-		 end
-		 out_img_stream = temp_result;
-		  
+	    out_img_stream = 0;
+		 for (int i = 0; i < KERNEL_SIZE; i = i + 1) begin
+				out_img_stream = out_img_stream + (flattened_weights[i] * current_conv[i]);
+		 end		  
 		 
 		 if (last_result > 0) begin
-				if (last_result == Out_Dim + 1) begin
+				if (last_result == OUT_DIM + 1) begin
 					out_valid = 0;
 					set = 0;			
 				end else begin
@@ -130,7 +126,7 @@ module Conv #(
 					set = 1;
 				end
 	    end
-		 else if ((save_pixel != current_pixel) && ((current_pixel) % (Img_Dim * Img_Ch * Kernal_Dim)) == 0 && (current_pixel) >= (Img_Dim*Img_Ch*Kernal_Dim) - 1) begin
+		 else if ((save_pixel != current_pixel) && ((current_pixel) % BUFFER_SIZE) == 0 && (current_pixel) >= (IMG_DIM*IMG_CH*KERNEL_DIM) - 1) begin
 				set = 1;
 				out_valid = 0;
 		 end

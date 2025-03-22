@@ -63,7 +63,7 @@ module conv_tb;
         in_valid = 1;
 		  
         // Apply image stream (Img_Dim * Img_Dim * Img_Ch = 4 * 4 * 3 = 48 cycles)
-        for (count = 0; count < ((Img_Dim * Img_Dim * Img_Ch))/2; count++) begin
+        for (count = 0; count < ((Img_Dim * Img_Dim * Img_Ch))-2/2; count++) begin
             in_img_stream = count;  // Random 8-bit input for the image stream
             #10;  // Wait for the next clock cycle
         end

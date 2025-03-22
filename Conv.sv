@@ -22,6 +22,7 @@ module Conv #(
 	 reg [15:0] temp_result;
 	 reg [7:0] current_pixel;
 	 reg [7:0] last_result;
+	 reg [7:0] save_pixel;
 
 	 
 	 Counter #(
@@ -42,14 +43,27 @@ module Conv #(
 	 reg last;
 	 
     // Initialization during reset
-    always @(posedge rst) begin
+    always @(posedge clk or posedge rst) begin
         if (rst) begin	
+		  		save_pixel = 0;
+
             // Reset the array or other logic
             for (i = 0; i < Kernal_Dim*Kernal_Dim*Img_Ch; i = i + 1) begin
                 group = i / (Kernal_Dim*Img_Ch);  // Determine the current group
                 in_read_addr[i] = (group * Kernal_Dim*Kernal_Dim*Img_Ch) + (i % (Kernal_Dim*Img_Ch));  // Assign values based on group and index within group
             end
-        end
+        end else begin
+			if ((current_pixel + 1) == (Img_Dim * Img_Dim * Img_Ch)) begin
+				last = 1;
+				end else begin
+					last = 0;
+				end
+				
+				if (last_result == Out_Dim - 1)
+				begin
+					save_pixel = current_pixel;
+				end  
+		  end
     end
 	 
 	 always_comb begin
@@ -85,13 +99,6 @@ module Conv #(
 	 integer index;
 	 integer sum_i;
 	 
-	 always @(posedge clk) begin
-			if ((current_pixel + 1) == (Img_Dim * Img_Dim * Img_Ch)) begin
-				last = 1;
-			end else begin
-				last = 0;
-			end
-	 end
 	 
 	 always_comb begin
 		  in_write_addr = current_pixel % (Img_Dim * Img_Ch * Kernal_Dim);
@@ -123,11 +130,11 @@ module Conv #(
 					set = 1;
 				end
 	    end
-		 else if (((current_pixel) % (Img_Dim * Img_Ch * Kernal_Dim)) == 0 && (current_pixel) >= (Img_Dim*Img_Ch*Kernal_Dim) - 1) begin
+		 else if ((save_pixel != current_pixel) && ((current_pixel) % (Img_Dim * Img_Ch * Kernal_Dim)) == 0 && (current_pixel) >= (Img_Dim*Img_Ch*Kernal_Dim) - 1) begin
 				set = 1;
 				out_valid = 0;
 		 end
-		 else if ((current_pixel)  == 0 && last) begin
+		 else if ((save_pixel != current_pixel) && (current_pixel)  == 0 && last) begin
 				set = 1;
 				out_valid = 0;
 		 
